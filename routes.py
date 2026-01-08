@@ -13,11 +13,50 @@ import os
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or 'uma_chave_secreta_muito_segura'
 
+
+# --- Wrappers seguros para lidar com métodos de modelo não implementados ---
+def _safe_list_call(func, *args, default=None, **kwargs):
+    try:
+        res = func(*args, **kwargs)
+        if res is None:
+            return default if default is not None else []
+        return res
+    except Exception:
+        return default if default is not None else []
+
+
+def _safe_tuple_call(func, *args, default_list=None, default_total=0, **kwargs):
+    try:
+        res = func(*args, **kwargs)
+        if res is None:
+            return (default_list or [], default_total)
+        if isinstance(res, tuple) and len(res) == 2:
+            lista, total = res
+            if lista is None:
+                lista = []
+            if total is None:
+                total = 0
+            return lista, total
+        if isinstance(res, list):
+            return res, len(res)
+        return (default_list or [], default_total)
+    except Exception:
+        return (default_list or [], default_total)
+
+
+def _safe_single_call(func, *args, **kwargs):
+    try:
+        return func(*args, **kwargs)
+    except Exception:
+        return None
+
+# -------------------------------------------------------------------------
+
 # Rota principal
 @app.route('/')
 def index():
     busca_form = BuscaForm()
-    livros_destaque = Livro.buscar_todos()[:4]  # Exemplo: 4 livros em destaque
+    livros_destaque = _safe_list_call(Livro.buscar_todos)[:4]  # Exemplo: 4 livros em destaque
     return render_template('index.html', livros=livros_destaque, form=busca_form)
 
 # Rota de busca
@@ -50,8 +89,8 @@ def buscar():
     # if form.num_autores.data:
     #     filtros['numero_autores'] = int(form.num_autores.data)
 
-    # Busca paginada via modelo
-    livros, total = Livro.buscar_livros(filtros, pagina, por_pagina)
+    # Busca paginada via modelo (tratando métodos não implementados)
+    livros, total = _safe_tuple_call(Livro.buscar_livros, filtros, pagina, por_pagina, default_list=[], default_total=0)
     total_paginas = (total // por_pagina) + (1 if total % por_pagina > 0 else 0)
 
     # Preenche o form com os valores dos filtros (para manter estado)
@@ -64,14 +103,14 @@ def buscar():
         form=form,
         pagina=pagina,
         total_paginas=total_paginas,
-        categorias=Livro.categorias_disponiveis(),
-        tags=Livro.tags_disponiveis()
+        categorias=_safe_list_call(Livro.categorias_disponiveis),
+        tags=_safe_list_call(Livro.tags_disponiveis)
     )
 
 # Página do livro
 @app.route('/livro/<id_livro>')
 def livro(id_livro):
-    livro = Livro.buscar_por_id(id_livro)
+    livro = _safe_single_call(Livro.buscar_por_id, id_livro)
     if not livro:
         flash('Livro não encontrado!', 'error')
         return redirect(url_for('index'))
@@ -100,7 +139,7 @@ def faq():
 def login():
     form = LoginForm()
     if request.method == 'POST' and form.validate_on_submit():
-        usuario = Usuario.buscar_por_email(form.email.data)
+        usuario = _safe_single_call(Usuario.buscar_por_email, form.email.data)
         # TODO: Validar senha (usando bcrypt)
         if usuario:  # Exemplo: sem validação de senha
             session['user_id'] = str(usuario['_id'])
@@ -122,7 +161,12 @@ def cadastro():
                 email=form.email.data,
                 senha=form.senha.data
             )
-            usuario.salvar()
+            try:
+                usuario.salvar()
+            except Exception:
+                # Se o método não estiver implementado, notificamos o usuário sem quebrar a rota
+                flash('Cadastro não concluído (implementação pendente).', 'warning')
+                return redirect(url_for('register'))
             flash('Cadastro realizado com sucesso!', 'success')
             return redirect(url_for('login'))
     return render_template('register.html', form=form)
@@ -139,7 +183,7 @@ def minha_conta():
     if 'user_id' not in session:
         flash('Faça login para acessar sua conta.', 'warning')
         return redirect(url_for('login'))
-    pedidos = Pedido.buscar_por_usuario(session['user_id'])
+    pedidos = _safe_list_call(Pedido.buscar_por_usuario, session['user_id'])
     return render_template('conta.html', pedidos=pedidos)
 
 @app.route('/recuperar-senha', methods=['GET', 'POST'])
