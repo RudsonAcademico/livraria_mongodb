@@ -49,7 +49,9 @@ class Livro:
         :return: ID do livro inserido.
         """
         # Todo
-        pass
+        livro_dict = self.__dict__.copy()
+        resultado = livros.insert_one(livro_dict)
+        return resultado.inserted_id
 
     @staticmethod
     def buscar_por_id(id_livro):
@@ -59,7 +61,12 @@ class Livro:
         :return: Dicionário com os dados do livro ou None.
         """
         # Todo
-        pass
+        try:
+            object_id = id_livro if isinstance(id_livro, ObjectId) else ObjectId(id_livro)
+        except Exception:
+            return None
+
+        return livros.find_one({"_id": object_id})
 
     @staticmethod
     def buscar_todos():
@@ -68,7 +75,7 @@ class Livro:
         :return: Lista de livros.
         """
         # Todo
-        pass
+        return list(livros.find())
     
     @staticmethod
     def buscar_livros(filtros=None, pagina=1, por_pagina=12):
@@ -80,7 +87,16 @@ class Livro:
         :return: (Lista de livros, total de livros encontrados)
         """
         # Todo
-        pass
+        if filtros is None:
+            filtros = {}
+
+        pagina = max(pagina, 1)
+        por_pagina = max(por_pagina, 1)
+        skip = (pagina - 1) * por_pagina
+        lista_livros = list(livros.find(filtros).skip(skip).limit(por_pagina))
+        total = livros.count_documents(filtros)
+
+        return lista_livros, total
 
     @staticmethod
     def categorias_disponiveis():
@@ -89,7 +105,7 @@ class Livro:
         :return: Lista de categorias.
         """
         # Todo
-        pass
+        return livros.distinct("categoria")
 
     @staticmethod
     def tags_disponiveis():
@@ -98,7 +114,11 @@ class Livro:
         :return: Lista de categorias.
         """
         # Todo
-        pass
+        return livros.distinct("tags")
+
+# ===========================
+# Classe Usuario
+# ===========================
 
 class Usuario:
     """
@@ -122,7 +142,9 @@ class Usuario:
         :return: ID do usuário inserido.
         """
         # Todo
-        pass
+        usuario_dict = self.__dict__.copy()
+        resultado = usuarios.insert_one(usuario_dict)
+        return resultado.inserted_id
 
     @staticmethod
     def buscar_por_email(email):
@@ -132,7 +154,7 @@ class Usuario:
         :return: Dicionário com os dados do usuário ou None.
         """
         # Todo
-        pass
+        return usuarios.find_one({"email": email})
 
     @staticmethod
     def buscar_por_id(id_usuario):
@@ -142,7 +164,11 @@ class Usuario:
         :return: Dicionário com os dados do usuário ou None.
         """
         # Todo
-        pass
+        try:
+            object_id = id_usuario if isinstance(id_usuario, ObjectId) else ObjectId(id_usuario)
+        except Exception:
+            return None
+        return usuarios.find_one({"_id": object_id})
 
 # ===========================
 # Classe Pedido
@@ -174,7 +200,9 @@ class Pedido:
         :return: ID do pedido inserido.
         """
         # Todo
-        pass
+        pedido_dict = self.__dict__.copy()
+        resultado = pedidos.insert_one(pedido_dict)
+        return resultado.inserted_id
 
     @staticmethod
     def buscar_por_usuario(id_usuario):
@@ -184,7 +212,11 @@ class Pedido:
         :return: Lista de pedidos.
         """
         # Todo
-        pass
+        try:
+            object_id = id_usuario if isinstance(id_usuario, ObjectId) else ObjectId(id_usuario)
+        except Exception:
+            return None
+        return usuarios.find_one({"_id": object_id})
 
     @staticmethod
     def buscar_por_id(id_pedido):
@@ -194,4 +226,8 @@ class Pedido:
         :return: Dicionário com os dados do pedido ou None.
         """
         # Todo
-        pass
+        try:
+            object_id = id_pedido if isinstance(id_pedido, ObjectId) else ObjectId(id_pedido)
+        except Exception:
+            return None
+        return pedidos.find_one({"_id": object_id})
